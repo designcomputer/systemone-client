@@ -1,4 +1,4 @@
-# ai_systemone
+# systemone-client
 
 Python client for the Ollama **System One** decision endpoint (`POST /v1/systemone`).
 
