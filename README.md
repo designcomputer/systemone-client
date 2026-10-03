@@ -99,6 +99,31 @@ response.answers["urgency"].score      # 1.6415  (0–2 scale)
 response.usage                         # {'input_tokens': 805, 'output_tokens': 4}
 ```
 
+## Image judging (Clef / Clef Flash)
+
+Only **Clef** and **Clef Flash** read images. Pass base64-encoded PNG, JPEG,
+or WebP strings in `images`; they are shared by all questions in request
+order. URLs and data URLs are not accepted, and `state` is still required —
+it holds the context for the decision. Requests with images may be up to
+**32 MiB** (base64 + JSON).
+
+```bash
+python example_image.py              # uses clef:27b
+python example_image.py clef:27b     # explicit model
+```
+
+The fixture `test_image.png` contains the text "Hello World" and a red
+circle. Measured on `clef:27b`:
+
+| Question | Type | Result | Expected |
+|----------|------|--------|----------|
+| contains "Hello"? | noul | 0.988 | ~1.0 |
+| which shape? | choice | circle (0.876) | circle |
+| shape color? | choice | red (0.939) | red |
+
+Non-vision models reject images with `400: this decision model does not
+support images` (verified on `tev1:4b`).
+
 ## API reference
 
 ### `systemone(model, state, questions, *, images=None, keep_alive=None, base_url=None, timeout=120.0) -> SystemOneResponse`
@@ -232,9 +257,10 @@ state (911 input tokens), steady-state mean after warmup.
 - **`clef:27b`** — tightest calibration overall (0.006 on negatives); the
   adjudicator of choice. Also the only non-flash model with image judging.
 - **`clef-flash:9b`** — ❌ broken on this server: every request returns
-  `500: Clef: non-finite logit`, deterministic across all inputs. Re-pulling
-  did not help (sha256 verifies against the registry, digest unchanged), so
-  the registry build itself is suspect. Excluded from benchmarks until fixed.
+  `500: Clef: non-finite logit`, deterministic across all inputs, on both the
+  text and image paths. Re-pulling did not help (sha256 verifies against the
+  registry, digest unchanged), so the registry build itself is suspect.
+  Excluded from benchmarks until fixed.
 
 ## Recommended patterns
 
@@ -250,8 +276,10 @@ state (911 input tokens), steady-state mean after warmup.
 ## Project layout
 
 ```
-systemone.py   # client: systemone(), systemone_fallback(), answer types, errors
-example.py     # runnable demo of all three question types
+systemone.py        # client: systemone(), systemone_fallback(), answer types, errors
+example.py          # runnable demo of all three question types
+example_image.py    # image test for Clef / Clef Flash (vision)
+test_image.png      # image fixture: 'Hello World' text + red circle
 ```
 
 ## References
