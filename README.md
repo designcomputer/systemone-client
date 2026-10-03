@@ -113,7 +113,7 @@ response.usage                         # {'input_tokens': 805, 'output_tokens': 
 | `base_url` | Override the server base URL |
 | `timeout` | Request timeout in seconds (default 120) |
 
-### `systemone_fallback(model, state, questions, *, fallback_model=None, confidence_threshold=0.6, noul_gray_band=(0.3, 0.7), **kwargs) -> SystemOneResponse`
+### `systemone_fallback(model, state, questions, *, fallback_model=None, confidence_threshold=0.6, noul_gray_band=(0.3, 0.7), client=None, **kwargs) -> SystemOneResponse`
 
 Optional confidence-based escalation. **With `fallback_model=None` it behaves
 exactly like `systemone()`.** With a fallback model configured:
@@ -123,6 +123,13 @@ exactly like `systemone()`.** With a fallback model configured:
    score falls inside `noul_gray_band`, the whole request re-runs on the
    fallback model.
 3. The returned response has `.escalated = True` when the fallback answered.
+
+| Parameter | Description |
+|-----------|-------------|
+| `fallback_model` | Model to re-run the request on when the primary is uncertain. `None` (default) disables escalation entirely |
+| `confidence_threshold` | Escalate `choice` answers with confidence below this (default 0.6) |
+| `noul_gray_band` | Escalate `noul` scores inside this band (default (0.3, 0.7)) |
+| `client` | Transport to call. Any callable with the `systemone()` signature returning a `SystemOneResponse`. Defaults to this module's `systemone()` |
 
 ```python
 from systemone import systemone_fallback
@@ -136,6 +143,29 @@ response = systemone_fallback(
 if response.escalated:
     print("adjudicated by", response.model)  # clef:27b
 ```
+
+#### Swapping the transport
+
+The escalation policy is transport-agnostic: `client` can be any function
+matching the `systemone()` signature. When the official `ollama` Python
+package gains System One support, point the fallback at it without changing
+the policy:
+
+```python
+from ollama import systemone as official_systemone  # future
+
+response = systemone_fallback(
+    "tev1:0.8b", state, questions,
+    fallback_model="clef:27b",
+    client=official_systemone,  # drop-in swap
+)
+```
+
+The client must return an object with `.answers` (values exposing the
+`noul` / `choice` + `confidence` fields), `.model`, `.usage`, and a settable
+`.escalated` attribute — i.e., a `SystemOneResponse` or a thin adapter.
+This keeps the routing/escalation logic — the part that is userland policy,
+not API plumbing — reusable across client generations.
 
 ### Response objects
 

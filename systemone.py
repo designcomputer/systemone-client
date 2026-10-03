@@ -37,7 +37,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import requests
 
@@ -212,6 +212,7 @@ def systemone_fallback(
     fallback_model: str | None = None,
     confidence_threshold: float = 0.6,
     noul_gray_band: tuple[float, float] = (0.3, 0.7),
+    client: Callable[..., SystemOneResponse] | None = None,
     **kwargs: Any,
 ) -> SystemOneResponse:
     """Run systemone with optional confidence-based escalation.
@@ -222,15 +223,22 @@ def systemone_fallback(
     score falls inside noul_gray_band, the whole request is re-run with
     the fallback model and that response is returned (escalated=True).
 
+    `client` is the transport: any callable with the systemone() signature
+    (model, state, questions, **kwargs) that returns a SystemOneResponse.
+    Defaults to this module's systemone(). Swap in the official ollama
+    client (once it supports System One) without changing the escalation
+    policy.
+
     Extra keyword arguments (images, keep_alive, base_url, timeout) are
     passed through to both calls.
     """
-    response = systemone(model, state, questions, **kwargs)
+    call = client or systemone
+    response = call(model, state, questions, **kwargs)
     if fallback_model is None:
         return response
     uncertain = _needs_escalation(response, confidence_threshold, noul_gray_band)
     if not uncertain:
         return response
-    escalated = systemone(fallback_model, state, questions, **kwargs)
+    escalated = call(fallback_model, state, questions, **kwargs)
     escalated.escalated = True
     return escalated
