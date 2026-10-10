@@ -121,6 +121,9 @@ circle. Measured on `clef:27b`:
 | which shape? | choice | circle (0.876) | circle |
 | shape color? | choice | red (0.939) | red |
 
+`clef-flash:9b` (digest `9f4115499b98`) also gets all three right: hello
+0.950, circle (0.789), red (0.893).
+
 Non-vision models reject images with `400: this decision model does not
 support images` (verified on `tev1:4b`).
 
@@ -234,7 +237,7 @@ state (911 input tokens), steady-state mean after warmup.
 | `nimble:9b` | Q8_0 | ~4.3 s | ~79 ms | ~108 ms | 0.997 | 0.130 | 0.87 |
 | `tev1:4b` | Q8_0 | ~2.2 s | ~68 ms | ~102 ms | 0.996 | 0.031 | 0.96 |
 | `tev1:0.8b` | Q8_0 | ~1.4 s | ~67 ms | ~80 ms | 0.688 | 0.290 | 0.40 |
-| `clef-flash:9b` | Q8_0 | — | ❌ | ❌ | — | — | broken (see below) |
+| `clef-flash:9b` | Q8_0 | ~4.2 s | ~145 ms* | ~276 ms* | 0.847* | 0.009* | 0.84* |
 
 ### Multi-type accuracy (ticket state, all three question types)
 
@@ -244,6 +247,12 @@ state (911 input tokens), steady-state mean after warmup.
 | `nimble:9b` | 0.998 | billing (0.870) | 1.067 |
 | `tev1:4b` | 0.992 | billing (0.886) | 1.642 |
 | `tev1:0.8b` | 0.982 | ⚠️ bug (0.431) — wrong, low confidence | 1.066 |
+| `clef-flash:9b` | 0.922 | billing (0.825) | 1.585 |
+
+\* `clef-flash:9b` was benchmarked on 2026-10-10, after the registry fix,
+with re-created states (226 / 946 input tokens). The same harness reproduced
+the published `clef:27b` figures within a few percent (positive 0.979,
+negative 0.007, ~198 / ~492 ms).
 
 ### Model notes
 
@@ -256,11 +265,15 @@ state (911 input tokens), steady-state mean after warmup.
 - **`nimble:9b`** — good noul calibration, softer on negatives (0.13).
 - **`clef:27b`** — tightest calibration overall (0.006 on negatives); the
   adjudicator of choice. Also the only non-flash model with image judging.
-- **`clef-flash:9b`** — ❌ broken on this server: every request returns
-  `500: Clef: non-finite logit`, deterministic across all inputs, on both the
-  text and image paths. Re-pulling did not help (sha256 verifies against the
-  registry, digest unchanged), so the registry build itself is suspect.
-  Excluded from benchmarks until fixed.
+- **`clef-flash:9b`** — ✅ fixed by the October registry update (digest
+  `2aa4d39fd93b` → `9f4115499b98`). The old build failed every request with
+  `500: Clef: non-finite logit`; re-pull if you still have it. About 1.5–2×
+  faster than `clef:27b` and needs less than half the cold load, with a
+  very clean negative (0.009) but a softer positive (0.85). It's the cheap
+  vision option; use `clef:27b` when image answers have to be sharp.
+- **`laya`** (421M, ModernBERT) — new in the decision catalog. It ships only
+  as MLX builds (`ollama pull laya` → `this model requires MLX support`), so it
+  can't run on this Windows server. Not benchmarked.
 
 ## Recommended patterns
 
