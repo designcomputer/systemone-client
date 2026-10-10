@@ -6,6 +6,25 @@ System One models classify text, answer yes/no questions, or score text against 
 rubric in a single forward pass — no generation, no streaming, one JSON response.
 Typical latency on this server: **~70–500 ms** depending on model and state size.
 
+## Why use this instead of the official `ollama` package?
+
+The official [`ollama`](https://pypi.org/project/ollama/) Python package has
+supported System One since **0.6.3** (`ollama.systemone()`). If you only need
+plain text questions, it's a fine choice. This client adds:
+
+| | `systemone-client` | `ollama` 0.6.3 |
+|---|---|---|
+| **Image judging** (Clef / Clef Flash) | ✅ `images=[...]` | ❌ no `images` parameter |
+| **Fallback model / escalation** | ✅ `systemone_fallback()` re-runs uncertain answers on a stronger model | ❌ not in the library or the API |
+| **Checks before sending** | ✅ empty state and over-limit bodies (64 KiB / 32 MiB) raise `ValueError` without a round trip | ❌ |
+| **Dependencies** | `requests`, one file | `httpx`, `pydantic` |
+| Typed answers incl. score `legend` / `probabilities` / `confidence` | ✅ | ✅ |
+| Async client | ❌ | ✅ |
+
+You don't have to pick one. `systemone_fallback(client=ollama.systemone)`
+keeps the escalation policy while using the official transport (text only;
+see [Swapping the transport](#swapping-the-transport)).
+
 ## Requirements
 
 - Python 3.10+ (uses `X | Y` type syntax)
@@ -175,12 +194,12 @@ if response.escalated:
 #### Swapping the transport
 
 The escalation policy is transport-agnostic: `client` can be any function
-matching the `systemone()` signature. When the official `ollama` Python
-package gains System One support, point the fallback at it without changing
-the policy:
+matching the `systemone()` signature. The official `ollama` Python package
+supports System One as of 0.6.3, so you can point the fallback at it without
+changing the policy (verified against `tev1:0.8b` → `clef:27b`):
 
 ```python
-from ollama import systemone as official_systemone  # future
+from ollama import systemone as official_systemone  # ollama >= 0.6.3
 
 response = systemone_fallback(
     "tev1:0.8b", state, questions,
@@ -188,6 +207,11 @@ response = systemone_fallback(
     client=official_systemone,  # drop-in swap
 )
 ```
+
+Two caveats with the official client: it reads the server from
+`OLLAMA_HOST` (not `SYSTEMONE_BASE_URL`), and it accepts only `keep_alive`.
+Passing `images`, `base_url`, or `timeout` through `**kwargs` raises
+`TypeError`.
 
 The client must return an object with `.answers` (values exposing the
 `noul` / `choice` + `confidence` fields), `.model`, `.usage`, and a settable
