@@ -3,7 +3,8 @@
 Supports all three System One question types:
   - noul:    yes/no            -> probability 0-1
   - choice:  labeled           -> label + probabilities + confidence
-  - score:   rubric (N levels) -> score on the 0-(N-1) scale
+  - score:   rubric (N levels) -> score on the 0-(N-1) scale + per-level
+                                  probabilities + confidence
 
 `state` may be a string, or a dict/list (serialized to JSON text per the
 API spec). `images` (base64 PNG/JPEG/WebP) is only supported by Clef and
@@ -78,10 +79,18 @@ class ChoiceAnswer:
 
 @dataclass
 class ScoreAnswer:
-    """Rubric question: score on the 0-(N-1) scale defined by the criteria list."""
+    """Rubric question: score on the 0-(N-1) scale defined by the criteria list.
+
+    `score` is the expected (possibly fractional) level. `probabilities` and
+    `legend` are keyed by zero-based level index as a string ('0', '1', ...);
+    `legend` maps each index to its criterion text.
+    """
 
     type: str
     score: float
+    legend: dict[str, str] = field(default_factory=dict)
+    probabilities: dict[str, float] = field(default_factory=dict)
+    confidence: float = 0.0
 
 
 Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer
@@ -107,7 +116,13 @@ def _parse_answer(value: dict[str, Any]) -> Answer:
             confidence=value.get("confidence", 0.0),
         )
     if qtype == "score":
-        return ScoreAnswer(type=qtype, score=value["score"])
+        return ScoreAnswer(
+            type=qtype,
+            score=value["score"],
+            legend=value.get("legend", {}),
+            probabilities=value.get("probabilities", {}),
+            confidence=value.get("confidence", 0.0),
+        )
     raise SystemOneError(0, f"unknown answer type: {qtype!r}")
 
 

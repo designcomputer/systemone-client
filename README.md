@@ -60,7 +60,7 @@ later questions — each is scored independently against the shared state.
 |------|------------------|---------------|
 | `noul` | `{"true": ..., "false": ...}` | `.noul` — probability 0–1 that the `true` criterion holds |
 | `choice` | `{"label": description, ...}` | `.choice`, `.probabilities` (per label), `.confidence` |
-| `score` | `["level 0", "level 1", ...]` | `.score` — value on the 0–(N−1) scale (N = number of rubric levels) |
+| `score` | `["level 0", "level 1", ...]` | `.score` — expected value on the 0–(N−1) scale (N = number of rubric levels); `.probabilities` and `.legend` (keyed `'0'`, `'1'`, …), `.confidence` |
 
 ### Example: all three in one request
 
@@ -206,7 +206,7 @@ SystemOneResponse
 
 NoulAnswer(type, noul)
 ChoiceAnswer(type, choice, probabilities, confidence)
-ScoreAnswer(type, score)
+ScoreAnswer(type, score, legend, probabilities, confidence)
 ```
 
 ### Errors
